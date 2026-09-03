@@ -1,0 +1,3 @@
+- Se comunica en español. Confidence: 0.9
+- Usa "Edgar <ebustamantep@gmail.com>" como identidad de autor en commits de git. Confidence: 0.8
+- Entorno de desarrollo en Windows con Laragon, proyectos bajo `C:\laragon\www\...`; prefiere PowerShell para comandos git. Confidence: 0.7
