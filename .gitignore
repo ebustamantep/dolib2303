@@ -1,0 +1,31 @@
+# Confidencial - configuración local de Dolibarr
+conf/conf.php
+conf/conf.php.bak
+conf/conf.php.old
+
+# Archivos temporales / logs
+*.log
+*.tmp
+*.cache
+*.lock
+
+# Directorios de almacenamiento de documentos y datos (según configuración, suelen estar fuera)
+*documents/
+*/documents/*
+
+# Sesiones y caches
+/temp/
+/sessions/
+/cache/
+
+# Archivos de desarrollo local
+.vscode/
+.idea/
+*.swp
+*~
+
+# Custom modules generados/compilados
+custom/*/__pycache__/
+
+# Otros archivos sensibles si se generan
+/install.lock
