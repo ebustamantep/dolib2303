@@ -1,0 +1,42 @@
+# Translation file
+
+#
+# Generic
+#
+
+# Module label 'ModulePOSPlusName'
+ModulePOSPlusName = POSPlus
+# Module description 'ModulePOSPlusDesc'
+ModulePOSPlusDesc = POSPlus description
+
+#
+# Admin page
+#
+POSPlusSetup = POSPlus setup
+Settings = Settings
+POSPlusSetupPage = POSPlus setup page
+NewSection=New section
+POSPLUS_MYPARAM1 = My param 1
+POSPLUS_MYPARAM1Tooltip = My param 1 tooltip
+POSPLUS_MYPARAM2=My param 2
+POSPLUS_MYPARAM2Tooltip=My param 2 tooltip
+
+
+#
+# About page
+#
+About = About
+POSPlusAbout = About POSPlus
+POSPlusAboutPage = POSPlus about page
+
+#
+# Sample page
+#
+POSPlusArea = Home POSPlus
+MyPageName = My page name
+
+#
+# Sample widget
+#
+MyWidget = My widget
+MyWidgetDescription = My widget description

@@ -5,7 +5,8 @@
       "Shell(if:*)",
       "Shell(else:*)",
       "Shell(dir:*)",
-      "powershell"
+      "powershell",
+      "Shell(rm \"C:\\Users\\Edgar\\AppData\\Local\\Temp\\commandcode\\C--laragon-www-dolib2303\\13ed9fb1-72cb-44c7-93c7-5b4be1071288\\scratchpad\\seed_catalog.php\" 2>&1; echo \"done\")"
     ],
     "deny": [],
     "defaultMode": "default"

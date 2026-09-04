@@ -1,3 +1,6 @@
 - Se comunica en español. Confidence: 0.9
 - Usa "Edgar <ebustamantep@gmail.com>" como identidad de autor en commits de git. Confidence: 0.8
 - Entorno de desarrollo en Windows con Laragon, proyectos bajo `C:\laragon\www\...`; prefiere PowerShell para comandos git. Confidence: 0.7
+- Prefiere datos realistas (productos reales, precios de compra/venta apegados a la realidad) al crear datos de prueba o semilla de un sistema de tienda; opera en moneda USD. Confidence: 0.6
+- Prefiere encapsular las personalizaciones de Dolibarr dentro de un módulo custom (usando hooks/overrides) en lugar de editar los archivos del núcleo (core), para que sean portables entre instalaciones y no se pierdan al actualizar Dolibarr. Confidence: 0.7
+- Al mostrar montos monetarios prefiere forzar coma como separador de decimales y punto como separador de miles (ej. `1.234,56`), independientemente del idioma de la instalación. Confidence: 0.7
