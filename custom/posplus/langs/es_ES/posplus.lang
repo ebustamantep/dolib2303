@@ -58,6 +58,10 @@ PosplusCurrency = Moneda
 PosplusAmountForeign = Monto
 PosplusRate = Tasa
 PosplusAmountLocal = Equivalente
+PosplusPendingTitle = Pendiente por cobrar
+PosplusPendingInvoice = Factura
+PosplusPendingCustomer = Cliente
+PosplusPendingAmount = Monto pendiente
 
 #
 # Pay (TakePOS) - payplus

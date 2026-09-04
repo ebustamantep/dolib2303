@@ -61,6 +61,10 @@ PosplusCurrency = Currency
 PosplusAmountForeign = Amount in currency
 PosplusRate = Rate
 PosplusAmountLocal = Amount in local currency
+PosplusPendingTitle = Pending to collect
+PosplusPendingInvoice = Invoice
+PosplusPendingCustomer = Customer
+PosplusPendingAmount = Pending amount
 
 #
 # Pay (TakePOS) - payplus

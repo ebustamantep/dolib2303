@@ -277,6 +277,63 @@ if ($terminal == '') {
 		print '<tr><td colspan="4">'.$langs->trans('PosplusNoData').'</td></tr>';
 	}
 	print '</table>';
+
+	// Section: pending to collect (validated invoices with a remaining balance)
+	// Pending = total_ttc (main currency) - sum of payments in main currency (pf.amount).
+	// We only include invoices of this terminal, within the day, that are validated (fk_statut >= 1)
+	// and still have a positive balance to collect (credit sales / deferred payments).
+	$sql3 = "SELECT f.rowid, f.ref, f.total_ttc, f.fk_soc, s.nom AS client, s.tva_intra,";
+	$sql3 .= " COALESCE(SUM(pf.amount), 0) AS paid, (f.total_ttc - COALESCE(SUM(pf.amount), 0)) AS pending";
+	$sql3 .= " FROM ".MAIN_DB_PREFIX."facture AS f";
+	$sql3 .= " LEFT JOIN ".MAIN_DB_PREFIX."societe AS s ON s.rowid = f.fk_soc";
+	$sql3 .= " LEFT JOIN ".MAIN_DB_PREFIX."paiement_facture AS pf ON pf.fk_facture = f.rowid";
+	$sql3 .= " WHERE f.entity IN (".getEntity('facture').")";
+	$sql3 .= " AND f.module_source = 'takepos'";
+	$sql3 .= " AND f.pos_source = '".$db->escape($terminal)."'";
+	$sql3 .= " AND f.fk_statut >= 1";
+	$sql3 .= " AND f.datef BETWEEN '".$db->idate($datestart)."' AND '".$db->idate($dateend)."'";
+	$sql3 .= " GROUP BY f.rowid, f.ref, f.total_ttc, f.fk_soc, s.nom, s.tva_intra";
+	$sql3 .= " HAVING pending > 0";
+	$sql3 .= " ORDER BY f.ref";
+
+	$pending = array();
+	$resql3 = $db->query($sql3);
+	if ($resql3) {
+		while ($obj3 = $db->fetch_object($resql3)) {
+			$pending[] = array(
+				'rowid' => (int) $obj3->rowid,
+				'ref' => $obj3->ref,
+				'total_ttc' => (float) $obj3->total_ttc,
+				'client' => $obj3->client,
+				'intra' => $obj3->tva_intra,
+				'paid' => (float) $obj3->paid,
+				'pending' => (float) $obj3->pending,
+			);
+		}
+		$db->free($resql3);
+	}
+
+	print '<table class="posclose">';
+	print '<tr><th colspan="3">'.$langs->trans('PosplusPendingTitle').'</th></tr>';
+	if (count($pending) > 0) {
+		print '<tr><th>'.$langs->trans('PosplusPendingInvoice').'</th><th>'.$langs->trans('PosplusPendingCustomer').'</th><th class="right">'.$langs->trans('PosplusPendingAmount').'</th></tr>';
+		$totalpending = 0;
+		foreach ($pending as $p) {
+			$totalpending += $p['pending'];
+			$clientlabel = $p['client'];
+			if (!empty($p['intra'])) {
+				$clientlabel .= ' ('.$langs->transnoentities('ProfId1ES').': '.$p['intra'].')';
+			}
+			if (empty($clientlabel)) {
+				$clientlabel = '-';
+			}
+			print '<tr><td>'.$p['ref'].'</td><td>'.$clientlabel.'</td><td class="right">'.posplus_price($p['pending'], $conf->currency).'</td></tr>';
+		}
+		print '<tr class="posclose-total"><td colspan="2">'.$langs->trans('PosplusPendingTitle').'</td><td class="right">'.posplus_price($totalpending, $conf->currency).'</td></tr>';
+	} else {
+		print '<tr><td colspan="3">'.$langs->trans('PosplusNoData').'</td></tr>';
+	}
+	print '</table>';
 }
 
 print '</div>';
