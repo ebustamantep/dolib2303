@@ -148,6 +148,7 @@ class ActionsPosplus extends CommonHookActions
 
 		$today = dol_print_date(dol_now(), '%Y-%m-%d'); // server date
 		$moduleurl = dol_buildpath('/posplus/cashclose.php', 1);
+		$payurl = dol_buildpath('/posplus/payplus.php', 1);
 
 		$this->resprints = '<style>
 .productprice-sub {
@@ -167,6 +168,25 @@ var posplusCashCloseToday = "'.dol_escape_js($today).'";
 function PosplusCashClose() {
 	$.colorbox({href: posplusCashCloseUrl + "?token=" + posplusCashCloseToken + "&date=" + posplusCashCloseToday, width: "80%", height: "80%", transition: "none", iframe: "true", title: "'.dol_escape_js($langs->trans("PosplusCaisseClose")).'"});
 }
+
+// Replacement of the native "Payment" button by the POSPlus "Pagar" popup.
+var posplusPayUrl = "'.dol_escape_js($payurl).'";
+var posplusPayToken = "'.dol_escape_js(currentToken()).'";
+var posplusPayTitle = "'.dol_escape_js($langs->trans("PosplusPayButton")).'";
+
+function PosplusPayPlus() {
+	var invoiceid = $("#invoiceid").val();
+	$.colorbox({href: posplusPayUrl + "?place=" + place + "&invoiceid=" + invoiceid + "&token=" + posplusPayToken, width: "80%", height: "90%", transition: "none", iframe: "true", title: posplusPayTitle});
+}
+
+$(document).ready(function() {
+	// The native button has onclick="CloseBill();". We point it to our popup and relabel it.
+	var btn = $("button[onclick*=\"CloseBill\"]");
+	if (btn.length) {
+		btn.attr("onclick", "PosplusPayPlus();");
+		btn.html("<span class=\"far fa-money-bill-alt paddingrightonly\"></span><div class=\"trunc\">" + posplusPayTitle + "</div>");
+	}
+});
 </script>';
 
 		// Multicurrency price display (optional)

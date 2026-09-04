@@ -58,3 +58,12 @@ PosplusCurrency = Moneda
 PosplusAmountForeign = Monto
 PosplusRate = Tasa
 PosplusAmountLocal = Equivalente
+
+#
+# Pay (TakePOS) - payplus
+#
+PosplusPayButton = Pagar
+PosplusPaymentReceived = Monto recibido
+PosplusEquivalent = Equivalente en moneda principal
+PosplusRegisterPayment = Registrar pago
+PosplusBankCurrency = Moneda de la cuenta

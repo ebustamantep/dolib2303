@@ -61,3 +61,12 @@ PosplusCurrency = Currency
 PosplusAmountForeign = Amount in currency
 PosplusRate = Rate
 PosplusAmountLocal = Amount in local currency
+
+#
+# Pay (TakePOS) - payplus
+#
+PosplusPayButton = Pay
+PosplusPaymentReceived = Amount received
+PosplusEquivalent = Equivalent in main currency
+PosplusRegisterPayment = Record payment
+PosplusBankCurrency = Bank account currency
