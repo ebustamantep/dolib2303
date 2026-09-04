@@ -133,6 +133,13 @@ $item->setAsThirdpartyType();
 // Setup conf for a selection of a boolean
 $formSetup->newItem('POSPLUS_MYPARAM5')->setAsYesNo();	 // ->fieldParams['alertifoff'] = 1 or ->fieldParams['alertifon'] = 1;
 
+// TakePOS buttons control
+$formSetup->newItem('DESCUENTO_FACTURA')->setAsYesNo();	 // Show/hide the invoice discount button in TakePOS
+$formSetup->newItem('MODIFICAR_PRECIO')->setAsYesNo();	// Allow/disable the modify price button in TakePOS
+$formSetup->newItem('DESCUENTO_LINEA')->setAsYesNo();	// Show/hide the line discount button in TakePOS
+$formSetup->newItem('VENTA_DIVIDIDA')->setAsYesNo();	// Show/hide the split sale button in TakePOS
+$formSetup->newItem('PRODUCTO_LIBRE')->setAsYesNo();	// Show/hide the free zone (free product) button in TakePOS
+
 // Setup conf for a selection of an Email template of type thirdparty
 $formSetup->newItem('POSPLUS_MYPARAM6')->setAsEmailTemplate('thirdparty');
 

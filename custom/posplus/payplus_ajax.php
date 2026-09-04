@@ -146,10 +146,11 @@ if ($pay == 'card') {
 if ($pay == 'cheque') {
 	$paycode = 'CHQ';
 }
+$isdelayed = ($pay == 'delayed');
 
-// Find the id of the payment mode in c_paiement.
+// Find the id of the payment mode in c_paiement (not used for delayed/credit sales).
 $paiementid = 0;
-if ($paycode) {
+if ($paycode && !$isdelayed) {
 	$sql = "SELECT id, code FROM ".MAIN_DB_PREFIX."c_paiement";
 	$sql .= " WHERE entity IN (".getEntity('c_paiement').")";
 	$sql .= " AND code = '".$db->escape($paycode)."'";
@@ -168,7 +169,7 @@ if ($bankaccount <= 0) {
 	$bankaccount = getDolGlobalInt('CASHDESK_ID_BANKACCOUNT_'.strtoupper($paycode).$_SESSION['takeposterminal']);
 }
 
-if ($bankaccount <= 0 && !empty($paycode) && isModEnabled('bank')) {
+if ($bankaccount <= 0 && !empty($paycode) && !$isdelayed && isModEnabled('bank')) {
 	$errormsg = $langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("BankAccount"));
 	$error++;
 }
@@ -184,7 +185,7 @@ if ($havebankaccount) {
 	$bankcurrency = ($acc->currency_code ? $acc->currency_code : $conf->currency);
 }
 
-if (!$error && !empty($paycode)) {
+if (!$error && (!empty($paycode) || $isdelayed)) {
 	$now = dol_now();
 	$invoice->oldcopy = dol_clone($invoice, 2);
 	$db->begin();
@@ -241,7 +242,15 @@ if (!$error && !empty($paycode)) {
 		}
 	}
 
-	if (!$error && $res >= 0) {
+	if ($isdelayed) {
+		// Deferred (credit) sale: do NOT register a payment nor a bank movement.
+		// If the invoice was validated above, just apply the deferred payment terms.
+		if (!$error && $res >= 0) {
+			if (getDolGlobalInt("TAKEPOS_DELAYED_TERMS")) {
+				$invoice->setPaymentTerms(getDolGlobalInt("TAKEPOS_DELAYED_TERMS"));
+			}
+		}
+	} elseif (!$error && $res >= 0) {
 		// Reload remaining amount after validation.
 		$remaintopay = $invoice->getRemainToPay();
 

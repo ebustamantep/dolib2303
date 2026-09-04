@@ -180,11 +180,15 @@ function PosplusPayPlus() {
 }
 
 $(document).ready(function() {
-	// The native button has onclick="CloseBill();". We point it to our popup and relabel it.
+	// The native button has onclick="CloseBill();". We point it to our popup, relabel it
+	// and style it green so the operator easily spots the payment action.
 	var btn = $("button[onclick*=\"CloseBill\"]");
 	if (btn.length) {
 		btn.attr("onclick", "PosplusPayPlus();");
 		btn.html("<span class=\"far fa-money-bill-alt paddingrightonly\"></span><div class=\"trunc\">" + posplusPayTitle + "</div>");
+		btn.css("background-color", "#28a745");
+		btn.css("color", "#ffffff");
+		btn.css("border-color", "#1e7e34");
 	}
 });
 </script>';
@@ -233,6 +237,60 @@ function posplusAppendSecondaryPrice(containerId, price) {
 }
 </script>';
 		}
+
+		// Show/hide the invoice discount button, enable/disable the modify price and line
+		// discount buttons, and hide the split-sale and free-zone buttons.
+		// DESCUENTO_FACTURA = 1 -> show the invoice discount button, 0 -> hide it.
+		// MODIFICAR_PRECIO = 1 -> price modifiable, 0 -> show it but disabled.
+		// DESCUENTO_LINEA = 1 -> line discount enabled, 0 -> show it but disabled.
+		// VENTA_DIVIDIDA = 1 -> show split sale button, 0 -> hide it.
+		// PRODUCTO_LIBRE = 1 -> show free zone button, 0 -> hide it.
+		$showdiscount = getDolGlobalInt('DESCUENTO_FACTURA', 0);
+		$enableprice = getDolGlobalInt('MODIFICAR_PRECIO', 0);
+		$enablelinediscount = getDolGlobalInt('DESCUENTO_LINEA', 0);
+		$showsplit = getDolGlobalInt('VENTA_DIVIDIDA', 0);
+		$showfreezone = getDolGlobalInt('PRODUCTO_LIBRE', 0);
+
+		$this->resprints .= '<script>
+$(document).ready(function() {
+	// Invoice discount button (added by core in the action menu with Reduction()).
+	var discountAfter = '.(($showdiscount) ? 'true' : 'false').';
+	if (!discountAfter) {
+		$("button[onclick*=\"Reduction\"]").hide();
+	}
+
+	function disableBtn(sel, enabled) {
+		var btn = $(sel);
+		if (btn.length) {
+			if (enabled) {
+				btn.prop("disabled", false);
+				btn.css("opacity", "");
+			} else {
+				btn.prop("disabled", true);
+				btn.css("opacity", "0.4");
+			}
+		}
+	}
+
+	// Modify price button (id="price" in the numpad).
+	disableBtn("#price", '.(($enableprice) ? 'true' : 'false').');
+
+	// Line discount button (id="reduction" in the numpad).
+	disableBtn("#reduction", '.(($enablelinediscount) ? 'true' : 'false').');
+
+	// Split sale button (core action Split()).
+	var splitAfter = '.(($showsplit) ? 'true' : 'false').';
+	if (!splitAfter) {
+		$("button[onclick*=\"Split()\"]").hide();
+	}
+
+	// Free zone (free product) button (core action FreeZone()).
+	var freezoneAfter = '.(($showfreezone) ? 'true' : 'false').';
+	if (!freezoneAfter) {
+		$("button[onclick*=\"FreeZone()\"]").hide();
+	}
+});
+</script>';
 
 		return 0;
 	}
@@ -334,6 +392,216 @@ function posplusAppendSecondaryPrice(containerId, price) {
 	});
 	</script>';
 
+		return 0;
+	}
+
+	/**
+	 * TakeposReceipt. Called on the TakePOS receipt page (context "takeposfrontend",
+	 * hook TakeposReceipt). The core receipt.php prints only the customer name; we
+	 * re-render the ticket so it also shows the customer's CI/RIF (tva_intra) right
+	 * after the name, without touching the core file.
+	 *
+	 * @param array<string,mixed> $parameters Hook metadata
+	 * @param CommonObject        $object    The invoice object
+	 * @param string              $action    Current action (if set)
+	 * @param HookManager         $hookmanager Hook manager
+	 * @return int <0 on error, 0 on success
+	 */
+	public function TakeposReceipt($parameters, &$object, &$action, $hookmanager)
+	{
+		global $db, $langs, $conf, $mysoc;
+
+		$this->resprints = '';
+
+		if (!is_object($object) || empty($object->element) || $object->element != 'facture') {
+			return 0;
+		}
+		if (!getDolGlobalString('TAKEPOS_SHOW_CUSTOMER')) {
+			return 0; // Core shows customer name only when this flag is on; nothing to extend otherwise.
+		}
+
+		// Only extend when the invoice has a real customer (not the generic POS thirdparty).
+		$constforcompanyid = 'CASHDESK_ID_THIRDPARTY'.(empty($_SESSION['takeposterminal']) ? '1' : $_SESSION['takeposterminal']);
+		$genericid = getDolGlobalInt($constforcompanyid);
+		if (empty($object->socid) || (int) $object->socid == (int) $genericid) {
+			return 0;
+		}
+
+		require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+		$soc = new Societe($db);
+		if ($soc->fetch($object->socid) <= 0) {
+			return 0;
+		}
+
+		$langs->loadLangs(array("main", "bills", "cashdesk", "companies", "posplus@posplus"));
+
+		$intra = trim($soc->tva_intra);
+		$intralabel = $langs->transnoentities('ProfId1ES'); // CI/RIF in es_VE (native key)
+
+		$facid = (int) $object->id;
+		$gift = GETPOSTINT('gift');
+
+		$out = '';
+
+		// Header: company name + specimen
+		$out .= '<center><div style="font-size: 1.5em"><b>'.$mysoc->name.'</b>';
+		if (GETPOST('specimen')) {
+			$out .= '<br>!!!!! SPECIMEN !!!!!';
+		}
+		$out .= '</div></center><br>';
+
+		// Header free text
+		$out .= '<p class="left">';
+		$constFreeText = 'TAKEPOS_HEADER'.(empty($_SESSION['takeposterminal']) ? '0' : $_SESSION['takeposterminal']);
+		if (getDolGlobalString('TAKEPOS_HEADER') || getDolGlobalString($constFreeText)) {
+			$newfreetext = '';
+			$substitutionarray = getCommonSubstitutionArray($langs);
+			complete_substitutions_array($substitutionarray, $langs, $object);
+			if (getDolGlobalString('TAKEPOS_HEADER')) {
+				$newfreetext .= make_substitutions(getDolGlobalString('TAKEPOS_HEADER'), $substitutionarray);
+			}
+			if (getDolGlobalString($constFreeText)) {
+				$newfreetext .= make_substitutions(getDolGlobalString($constFreeText), $substitutionarray);
+			}
+			$out .= nl2br($newfreetext);
+		}
+		$out .= '</p>';
+
+		// Reference / terminal / customer (name + CI/RIF)
+		$out .= '<p class="right">';
+		if (getDolGlobalString('TAKEPOS_RECEIPT_NAME')) {
+			$out .= getDolGlobalString('TAKEPOS_RECEIPT_NAME').' ';
+		} else {
+			$out .= $langs->trans("InvoiceRef").' ';
+		}
+		$out .= $object->ref;
+		$out .= '<br>'.$langs->trans("Terminal").' '.($object->pos_source ? $object->pos_source : 'Backoffice');
+		// Customer: name + CI/RIF
+		$out .= '<br>'.$langs->trans("Customer").': '.$soc->name;
+		if ($intra) {
+			$out .= ' &middot; '.$intralabel.': '.$intra;
+		}
+		// Date
+		$out .= '<br>'.$langs->trans('Date').': '.dol_print_date($object->date ? $object->date : dol_now(), 'day');
+		// Date of printing
+		if (isALNERunningVersion() || !getDolGlobalString('TAKEPOS_HIDE_DATE_OF_PRINTING')) {
+			$out .= '<br>'.$langs->trans("DateOfPrinting").': '.dol_print_date(dol_now(), 'dayhour', 'tzuserrel');
+		}
+		$out .= '</p><br>';
+
+		// Lines
+		$out .= '<table class="centpercent" style="border-top-style: double;"><thead><tr>';
+		$out .= '<th class="left">'.$langs->trans("Label").'</th>';
+		$out .= '<th class="right">'.$langs->trans("Qty").'</th>';
+		$out .= '<th class="right">'.($gift != 1 ? $langs->trans("Price") : '').'</th>';
+		if (getDolGlobalString('TAKEPOS_SHOW_HT_RECEIPT')) {
+			$out .= '<th class="right">'.($gift != 1 ? $langs->trans("TotalHT") : '').'</th>';
+		}
+		$out .= '<th class="right">'.($gift != 1 ? $langs->trans("TotalTTC") : '').'</th>';
+		$out .= '</tr></thead><tbody>';
+		foreach ($object->lines as $line) {
+			$out .= '<tr>';
+			$out .= '<td>'.(!empty($line->product_label) ? $line->product_label : $line->desc).'</td>';
+			$out .= '<td class="right">'.$line->qty.'</td>';
+			if ($gift != 1) {
+				$out .= '<td class="right">'.price(price2num($line->total_ttc / $line->qty, 'MT'), 1).'</td>';
+			}
+			if (getDolGlobalString('TAKEPOS_SHOW_HT_RECEIPT')) {
+				$out .= '<td class="right">'.($gift != 1 ? price($line->total_ht, 1) : '').'</td>';
+			}
+			$out .= '<td class="right">'.($gift != 1 ? price($line->total_ttc, 1) : '').'</td>';
+			$out .= '</tr>';
+		}
+		$out .= '</tbody></table><br>';
+
+		// Totals
+		$out .= '<table class="right centpercent"><tr>';
+		$out .= '<th class="right">'.($gift != 1 ? $langs->trans("TotalHT") : '').'</th>';
+		$out .= '<td class="right">'.($gift != 1 ? price($object->total_ht, 1, '', 1, -1, -1, $conf->currency) : '').'</td></tr>';
+		if (getDolGlobalString('TAKEPOS_TICKET_VAT_GROUPPED')) {
+			$vat_groups = array();
+			foreach ($object->lines as $line) {
+				if (!array_key_exists((string) $line->tva_tx, $vat_groups)) {
+					$vat_groups[(string) $line->tva_tx] = 0;
+				}
+				$vat_groups[(string) $line->tva_tx] += $line->total_tva;
+			}
+			foreach ($vat_groups as $key => $val) {
+				$out .= '<tr><th class="right">'.($gift != 1 ? $langs->trans("VAT").' '.vatrate($key, true) : '').'</th>';
+				$out .= '<td class="right">'.($gift != 1 ? price($val, 1, '', 1, -1, -1, $conf->currency) : '').'</td></tr>';
+			}
+		} else {
+			$out .= '<tr><th class="right">'.$langs->trans("TotalVAT").'</th><td class="right">'.price($object->total_tva, 1, '', 1, -1, -1, $conf->currency).'</td></tr>';
+		}
+		if (price2num($object->total_localtax1, 'MU') || $mysoc->useLocalTax(1)) {
+			$out .= '<tr><th class="right">'.$langs->trans("TotalLT1").'</th><td class="right">'.price($object->total_localtax1, 1, '', 1, -1, -1, $conf->currency).'</td></tr>';
+		}
+		if (price2num($object->total_localtax2, 'MU') || $mysoc->useLocalTax(2)) {
+			$out .= '<tr><th class="right">'.$langs->trans("TotalLT2").'</th><td class="right">'.price($object->total_localtax2, 1, '', 1, -1, -1, $conf->currency).'</td></tr>';
+		}
+		$out .= '<tr><th class="right">'.$langs->trans("TotalTTC").'</th><td class="right">'.price($object->total_ttc, 1, '', 1, -1, -1, $conf->currency).'</td></tr>';
+
+		// Payments
+		if (getDolGlobalString('TAKEPOS_PRINT_PAYMENT_METHOD')) {
+			$sql = "SELECT p.pos_change as pos_change, p.datep as date, p.fk_paiement, p.num_paiement as num,";
+			$sql .= " f.multicurrency_code, pf.amount as amount, pf.multicurrency_amount, cp.code";
+			$sql .= " FROM ".MAIN_DB_PREFIX."paiement_facture as pf, ".MAIN_DB_PREFIX."facture as f, ".MAIN_DB_PREFIX."paiement as p";
+			$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."c_paiement as cp ON p.fk_paiement = cp.id";
+			$sql .= " WHERE pf.fk_facture = f.rowid AND pf.fk_paiement = p.rowid AND pf.fk_facture = ".((int) $facid);
+			$sql .= " ORDER BY p.datep";
+			$resql = $db->query($sql);
+			if ($resql) {
+				$num = $db->num_rows($resql);
+				$i = 0;
+				while ($i < $num) {
+					$row = $db->fetch_object($resql);
+					$out .= '<tr>';
+					$out .= '<td class="right">'.$langs->transnoentitiesnoconv("PaymentTypeShort".$row->code).'</td>';
+					$out .= '<td class="right">';
+					$amount_payment = (isModEnabled('multicurrency') && $object->multicurrency_tx != 1) ? $row->multicurrency_amount : $row->amount;
+					if ((!isModEnabled('multicurrency') || $object->multicurrency_tx == 1) && $row->code == "LIQ" && $row->pos_change > 0) {
+						$amount_payment += $row->pos_change;
+						$currency = $conf->currency;
+					} else {
+						$currency = $row->multicurrency_code;
+					}
+					$out .= price($amount_payment, 1, '', 1, -1, -1, $currency);
+					$out .= '</td></tr>';
+					if ((!isModEnabled('multicurrency') || $object->multicurrency_tx == 1) && $row->code == "LIQ" && $row->pos_change > 0) {
+						$out .= '<tr><td class="right">'.$langs->trans("Change").'</td><td class="right">'.price($row->pos_change, 1, '', 1, -1, -1, $currency).'</td></tr>';
+					}
+					$i++;
+				}
+			}
+		}
+
+		$out .= '</table><br><br><br>';
+
+		// Footer free text
+		$constFreeText = 'TAKEPOS_FOOTER'.(empty($_SESSION['takeposterminal']) ? '0' : $_SESSION['takeposterminal']);
+		if (getDolGlobalString('TAKEPOS_FOOTER') || getDolGlobalString($constFreeText)) {
+			$newfreetext = '';
+			$substitutionarray = getCommonSubstitutionArray($langs);
+			complete_substitutions_array($substitutionarray, $langs, $object);
+			if (getDolGlobalString($constFreeText)) {
+				$newfreetext .= make_substitutions(getDolGlobalString($constFreeText), $substitutionarray);
+			}
+			if (getDolGlobalString('TAKEPOS_FOOTER')) {
+				$newfreetext .= make_substitutions(getDolGlobalString('TAKEPOS_FOOTER'), $substitutionarray);
+			}
+			$out .= $newfreetext;
+		}
+
+		// Auto print
+		if (!GETPOST('forcenoautoopen')) {
+			$out .= '<script type="text/javascript">';
+			if ($facid) {
+				$out .= 'window.print();';
+			}
+			$out .= '</script>';
+		}
+
+		$this->resprints = $out;
 		return 0;
 	}
 }

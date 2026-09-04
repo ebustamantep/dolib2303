@@ -211,9 +211,35 @@ function posplus_fmt_amount($amount, $currency_code)
 $maincurrency = $conf->currency;
 $rowcount = count($arrayOfPaymentModes);
 
+// Multicurrency feature active only when a customer currency differs from the main currency.
+$multicurrencyactive = (isModEnabled('multicurrency') && $sessioncurrency != '' && $sessioncurrency != $maincurrency && $multicurrencyrate > 0);
+$showdelayed = getDolGlobalInt('TAKEPOS_DELAYED_PAYMENT');
+
+// Build the list of payment modes to inject in JS: code, account, currency and rate.
+$jsmodes = array();
+$i = 0;
+foreach ($arrayOfPaymentModes as $mode) {
+	$i++;
+	$cur = $mode['currency'];
+	$isAccountForeign = ($cur != $maincurrency);
+	if ($isAccountForeign) {
+		$rate = ($invoicerate > 0 ? $invoicerate : ($multicurrencyrate > 0 ? $multicurrencyrate : 1));
+	} else {
+		$rate = 1;
+	}
+	$jsmodes[] = array(
+		'code' => $mode['code'],
+		'label' => $langs->trans('PaymentTypeShort'.$mode['code']),
+		'accountid' => (int) $mode['accountid'],
+		'currency' => $cur,
+		'rate' => (float) $rate,
+	);
+}
+$rowcount = count($jsmodes);
+
 // Debug helper (only when constant POSPLUS_DEBUG is set to 1)
 if (getDolGlobalInt('POSPLUS_DEBUG')) {
-	print '<!-- DEBUG payplus: terminal='.dol_escape_htmltag($terminal).' sessionterm='.dol_escape_htmltag(isset($_SESSION['takeposterminal']) ? $_SESSION['takeposterminal'] : 'NULL').' rowcount='.$rowcount.' bank_enabled='.(isModEnabled('bank') ? '1' : '0').' c_paiement_entity='.dol_escape_htmltag(getEntity('c_paiement')).' -->';
+	print '<!-- DEBUG payplus: terminal='.dol_escape_htmltag($terminal).' sessionterm='.dol_escape_htmltag(isset($_SESSION['takeposterminal']) ? $_SESSION['takeposterminal'] : 'NULL').' rowcount='.$rowcount.' bank_enabled='.(isModEnabled('bank') ? '1' : '0').' c_paiement_entity='.dol_escape_htmltag(getEntity('c_paiement')).' multicurrencyactive='.($multicurrencyactive ? '1' : '0').' sessioncurrency='.dol_escape_htmltag($sessioncurrency).' delayed='.($showdelayed ? '1' : '0').' -->';
 }
 ?>
 <!DOCTYPE html>
@@ -222,17 +248,20 @@ if (getDolGlobalInt('POSPLUS_DEBUG')) {
 <style>
 body { background-color: #fff; padding: 10px; font-size: 14px; font-family: Arial, Helvetica, sans-serif; }
 #payplusbox { max-width: 700px; margin: auto; }
-.payplus-total { font-size: 1.3em; font-weight: bold; margin-bottom: 8px; }
-.payplus-remain { margin-bottom: 12px; }
-table.posplus-pay { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-table.posplus-pay th, table.posplus-pay td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
-table.posplus-pay th { background-color: #f0f0f0; }
-table.posplus-pay td.right, table.posplus-pay th.right { text-align: right; }
-.posplus-pay input[type="text"] { width: 110px; text-align: right; }
+.payplus-total { font-size: 1.2em; font-weight: bold; margin-bottom: 8px; }
+.payplus-remain { margin-bottom: 8px; }
 .payplus-eq { font-size: 0.9em; opacity: 0.85; }
-.payplus-change { font-weight: bold; }
-.payplus-btn { margin-top: 10px; }
-.payplus-btn button { font-size: 1.1em; padding: 8px 16px; }
+.payplus-amounts { border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; background-color: #fafafa; }
+.payplus-amounts .fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.payplus-amounts .field { display: flex; flex-direction: column; }
+.payplus-amounts .field label { font-size: 0.85em; opacity: 0.75; margin-bottom: 2px; }
+.payplus-amounts .field input[type="text"] { width: 160px; text-align: right; padding: 5px 8px; font-size: 1.1em; }
+.payplus-rate-hint { font-size: 0.85em; opacity: 0.75; margin-top: 6px; }
+.payplus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.payplus-grid .btn-mode { font-size: 1.05em; padding: 10px 8px; cursor: pointer; }
+.payplus-btn-delayed { font-size: 1.05em; padding: 10px 8px; margin-bottom: 12px; width: 100%; cursor: pointer; }
+.payplus-btn-close { margin-top: 12px; }
+.payplus-note { font-size: 0.9em; opacity: 0.8; margin-top: 6px; }
 </style>
 <script type="text/javascript" src="<?php echo DOL_URL_ROOT; ?>/includes/jquery/js/jquery.js"></script>
 </head>
@@ -245,60 +274,58 @@ if ($invoicenotfound) {
 }
 
 // Total header (main currency + customer currency equivalent, like pay.php)
-print '<div class="payplus-total">'.$langs->trans('TotalTTC').': '.posplus_fmt_amount($totaltopay, $maincurrency);
-if ($multicurrencyrate > 0) {
-	print ' &nbsp; <span class="payplus-eq">('.posplus_fmt_amount($totaltopay * $multicurrencyrate, $sessioncurrency).')</span>';
+print '<div class="payplus-total">'.$langs->trans('TotalTTC').': <span id="posplus_total_main">'.posplus_fmt_amount($totaltopay, $maincurrency).'</span>';
+if ($multicurrencyactive) {
+	print ' &nbsp; <span class="payplus-eq">(<span id="posplus_total_ses">'.posplus_fmt_amount($totaltopay * $multicurrencyrate, $sessioncurrency).'</span>)</span>';
 }
 print '</div>';
 
-print '<div class="payplus-remain">'.$langs->trans('RemainToPay').': '.posplus_fmt_amount($remaintopay, $maincurrency);
-if ($multicurrencyrate > 0) {
-	print ' &nbsp; <span class="payplus-eq">('.posplus_fmt_amount($remaintopay * $multicurrencyrate, $sessioncurrency).')</span>';
+// Remain to pay (updated dynamically after each partial payment)
+print '<div class="payplus-remain">'.$langs->trans('RemainToPay').': <span id="posplus_remain_main">'.posplus_fmt_amount($remaintopay, $maincurrency).'</span>';
+if ($multicurrencyactive) {
+	print ' &nbsp; <span class="payplus-eq">(<span id="posplus_remain_ses">'.posplus_fmt_amount($remaintopay * $multicurrencyrate, $sessioncurrency).'</span>)</span>';
 }
 print '</div>';
 
-// Payment modes breakdown
-print '<form id="posplusPayForm" onsubmit="return false;">';
-print '<table class="posplus-pay">';
-print '<tr><th>'.$langs->trans('PosplusPaymentMode').'</th><th>'.$langs->trans('PosplusBankCurrency').'</th><th class="right">'.$langs->trans('PosplusPaymentReceived').'</th><th class="right">'.$langs->trans('PosplusEquivalent').'</th></tr>';
-
-$i = 0;
-foreach ($arrayOfPaymentModes as $mode) {
-	$i++;
-	$cur = $mode['currency'];
-	$isforeign = ($cur != $maincurrency);
-	// For the equivalent in main currency we need a foreign-per-main rate.
-	// It is only relevant when the mode's currency differs from the main currency;
-	// otherwise there is no conversion (rate = 1).
-	if ($isforeign) {
-		$rate = ($invoicerate > 0 ? $invoicerate : ($multicurrencyrate > 0 ? $multicurrencyrate : 1));
-	} else {
-		$rate = 1;
-	}
-	$isCash = ($mode['code'] == 'LIQ');
-
-	print '<tr>';
-	print '<td>'.$langs->trans('PaymentTypeShort'.$mode['code']).'</td>';
-	print '<td>'.$cur.'</td>';
-	print '<td class="right"><input type="text" id="posplus_amount_'.$i.'" class="posplus-amount" data-idx="'.$i.'" data-code="'.dol_escape_js($mode['code']).'" data-account="'.((int) $mode['accountid']).'" data-currency="'.dol_escape_js($cur).'" data-rate="'.$rate.'" data-foreign="'.($isforeign ? '1' : '0').'" data-cash="'.($isCash ? '1' : '0').'" value=""></td>';
-	print '<td class="right"><span id="posplus_eq_'.$i.'">-</span></td>';
-	print '</tr>';
+// Global amount inputs (local + customer session currency)
+print '<div class="payplus-amounts">';
+print '<div class="fields">';
+print '<div class="field"><label>'.$langs->trans('PosplusLocalCurrency').' ('.$maincurrency.')</label>';
+print '<input type="text" id="posplus_local" class="posplus-local" value="'.posplus_fmt_amount($remaintopay, '').'">';
+print '</div>';
+if ($multicurrencyactive) {
+	print '<div class="field"><label>'.$langs->trans('PosplusSessionCurrency').' ('.$sessioncurrency.')</label>';
+	print '<input type="text" id="posplus_ses" class="posplus-session" value="'.posplus_fmt_amount($remaintopay * $multicurrencyrate, '').'">';
+	print '</div>';
 }
+print '</div>';
+if ($multicurrencyactive) {
+	print '<div class="payplus-rate-hint">1 '.dol_escape_htmltag($maincurrency).' = '.posplus_fmt_amount($multicurrencyrate, '').' '.dol_escape_htmltag($sessioncurrency).'</div>';
+}
+print '</div>';
 
+// Payment mode buttons grid
+print '<div class="payplus-grid" id="posplus_modes_grid">';
+$idx = 0;
+foreach ($jsmodes as $m) {
+	$label = $langs->trans('PaymentTypeShort'.$m['code']);
+	print '<button type="button" class="btn-mode" onclick="posplusPayMode('.$idx.')">'.$label.'</button>';
+	$idx++;
+}
 if ($i == 0) {
-	print '<tr><td colspan="4">'.$langs->trans('NoPaimementModesDefined').'</td></tr>';
+	print '<div class="payplus-note">'.$langs->trans('NoPaimementModesDefined').'</div>';
+}
+print '</div>';
+
+// Deferred payment (credit sale)
+if ($showdelayed) {
+	print '<button type="button" class="payplus-btn-delayed" onclick="posplusDelayed()">'.$langs->trans('PosplusDelayed').'</button>';
 }
 
-print '</table>';
+print '<div class="payplus-note" id="posplus_paid_note"></div>';
 
-// Change (running total in main currency)
-print '<div class="payplus-remain"><strong>'.$langs->trans('Change').':</strong> <span id="posplus_change_display">0</span> '.dol_escape_htmltag($maincurrency).'</div>';
-
-print '</form>';
-
-print '<div class="payplus-btn">';
-print '<button type="button" onclick="posplusRegisterPayments()">'.$langs->trans('PosplusRegisterPayment').'</button>';
-print ' &nbsp; <button type="button" onclick="parent.$.colorbox.close();">'.$langs->trans('Close').'</button>';
+print '<div class="payplus-btn-close">';
+print '<button type="button" onclick="parent.$.colorbox.close();">'.$langs->trans('Close').'</button>';
 print '</div>';
 ?>
 
@@ -311,11 +338,15 @@ print '</div>';
 	var posplusToken = <?php echo json_encode(currentToken()); ?>;
 	var posplusInvoiceId = <?php echo (int) $invoiceid; ?>;
 	var posplusMainCurrency = <?php echo json_encode($maincurrency); ?>;
+	var posplusMulticurrencyRate = <?php echo (float) ($multicurrencyactive ? $multicurrencyrate : 0); ?>;
+	var posplusSessionCurrency = <?php echo json_encode($multicurrencyactive ? $sessioncurrency : ''); ?>;
+	var posplusDelayedEnabled = <?php echo ($showdelayed ? '1' : '0'); ?>;
+	var posplusModes = <?php echo json_encode($jsmodes); ?>;
 
+	// Parse an amount string ("1.234,56" or "1234.56") into a float.
 	function posplusParseAmount(str) {
 		if (!str) { return 0; }
 		str = String(str).replace(/\s/g, '');
-		// Accept "1.234,56" (es-VE) or "1234.56"
 		if (str.indexOf(',') > -1 && str.indexOf('.') > -1) {
 			str = str.replace(/\./g, '').replace(',', '.');
 		} else if (str.indexOf(',') > -1) {
@@ -325,6 +356,7 @@ print '</div>';
 		return isNaN(v) ? 0 : v;
 	}
 
+	// Format a float in "1.234,56".
 	function posplusFormatAmount(amount) {
 		var nb = Number(amount).toFixed(2);
 		var parts = nb.split('.');
@@ -332,104 +364,145 @@ print '</div>';
 		return intPart + ',' + (parts[1] || '00');
 	}
 
-	function posplusUpdateRow(rowIdx) {
-		var input = document.getElementById('posplus_amount_' + rowIdx);
-		if (!input) { return; }
-		var amount = posplusParseAmount(input.value);
-		var rate = parseFloat(input.getAttribute('data-rate')) || 1;
-		// rate = foreign per main, so main-equivalent = amount / rate.
-		var eq = amount / rate;
-
-		var eqEl = document.getElementById('posplus_eq_' + rowIdx);
-		if (eqEl) {
-			eqEl.textContent = posplusFormatAmount(eq) + ' ' + posplusMainCurrency;
-		}
-
-		// Recompute change across all rows (running total in main currency).
-		var totalReceivedMain = 0;
-		<?php for ($k = 1; $k <= $rowcount; $k++) { ?>
-		var inp<?php echo $k; ?> = document.getElementById('posplus_amount_<?php echo $k; ?>');
-		if (inp<?php echo $k; ?>) {
-			totalReceivedMain += posplusParseAmount(inp<?php echo $k; ?>.value) / (parseFloat(inp<?php echo $k; ?>.getAttribute('data-rate')) || 1);
-		}
-		<?php } ?>
-
-		var change = totalReceivedMain - posplusRemainToPay;
-		var chEl = document.getElementById('posplus_change_display');
-		if (chEl) {
-			chEl.textContent = (change > 0 ? posplusFormatAmount(change) : '0');
+	// Update the remain header (main + session) after a partial payment.
+	function posplusSetRemain(remainMain) {
+		posplusRemainToPay = remainMain;
+		var mainEl = document.getElementById('posplus_remain_main');
+		if (mainEl) { mainEl.textContent = posplusFormatAmount(remainMain) + ' ' + posplusMainCurrency; }
+		var sesEl = document.getElementById('posplus_remain_ses');
+		if (sesEl && posplusMulticurrencyRate > 0) {
+			sesEl.textContent = posplusFormatAmount(remainMain * posplusMulticurrencyRate) + ' ' + posplusSessionCurrency;
 		}
 	}
 
-	<?php for ($k = 1; $k <= $rowcount; $k++) { ?>
+	// Reload the global inputs with a remaining amount (in main currency).
+	function posplusReloadInputs(remainMain) {
+		var local = document.getElementById('posplus_local');
+		if (local) { local.value = remainMain > 0 ? posplusFormatAmount(remainMain) : ''; }
+		posplusSyncSessionFromLocal();
+	}
+
+	// Sync session input from local input.
+	function posplusSyncSessionFromLocal() {
+		if (posplusMulticurrencyRate <= 0) { return; }
+		var local = document.getElementById('posplus_local');
+		var ses = document.getElementById('posplus_ses');
+		if (!local || !ses) { return; }
+		var main = posplusParseAmount(local.value);
+		ses.value = main > 0 ? posplusFormatAmount(main * posplusMulticurrencyRate) : '';
+	}
+
+	// Sync local input from session input.
+	function posplusSyncLocalFromSession() {
+		if (posplusMulticurrencyRate <= 0) { return; }
+		var local = document.getElementById('posplus_local');
+		var ses = document.getElementById('posplus_ses');
+		if (!local || !ses) { return; }
+		var amtSes = posplusParseAmount(ses.value);
+		var main = amtSes / posplusMulticurrencyRate;
+		local.value = main > 0 ? posplusFormatAmount(main) : '';
+	}
+
+	// Attach input handlers.
 	document.addEventListener('DOMContentLoaded', function() {
-		var input = document.getElementById('posplus_amount_<?php echo $k; ?>');
-		if (input) {
-			input.addEventListener('input', function() { posplusUpdateRow(<?php echo $k; ?>); });
-		}
+		var local = document.getElementById('posplus_local');
+		if (local) { local.addEventListener('input', function() { posplusSyncSessionFromLocal(); }); }
+		var ses = document.getElementById('posplus_ses');
+		if (ses) { ses.addEventListener('input', function() { posplusSyncLocalFromSession(); }); }
 	});
-	<?php } ?>
 
-	function posplusRegisterPayments() {
-		var payments = [];
-		<?php for ($k = 1; $k <= $rowcount; $k++) { ?>
-		var input<?php echo $k; ?> = document.getElementById('posplus_amount_<?php echo $k; ?>');
-		var amt<?php echo $k; ?> = input<?php echo $k; ?> ? posplusParseAmount(input<?php echo $k; ?>.value) : 0;
-		if (amt<?php echo $k; ?> > 0) {
-			payments.push({
-				pay: input<?php echo $k; ?>.getAttribute('data-code'),
-				amount: amt<?php echo $k; ?>,
-				accountid: input<?php echo $k; ?>.getAttribute('data-account'),
-				currency: input<?php echo $k; ?>.getAttribute('data-currency'),
-				rate: parseFloat(input<?php echo $k; ?>.getAttribute('data-rate')) || 1
-			});
-		}
-		<?php } ?>
-
-		if (payments.length === 0) {
+	// Register a payment for a given mode using the global local amount.
+	function posplusPayMode(modeIdx) {
+		var local = document.getElementById('posplus_local');
+		if (!local) { return; }
+		var amountMain = posplusParseAmount(local.value);
+		if (amountMain <= 0) {
 			alert(<?php echo json_encode($langs->trans('TotalAmountEmpty')); ?>);
 			return;
 		}
 
-		var idx = 0;
-		var failed = false;
+		var mode = posplusModes[modeIdx];
+		if (!mode) { return; }
 
-		function sendNext() {
-			if (failed) { return; }
-			if (idx >= payments.length) {
-				// All done OK: reload the POS lines and close the popup.
-				parent.$("#poslines").load("invoice.php?place=" + posplusPlace + "&token=" + posplusToken);
+		var rate = parseFloat(mode.rate) || 1;
+		var excess = 0;
+		if (String(mode.code) === 'LIQ' && amountMain > posplusRemainToPay) {
+			excess = amountMain - posplusRemainToPay;
+		}
+
+		// If this payment completes the invoice (covers the remain to pay), we delegate
+		// the payment + closing + native ticket printing to the core by reloading
+		// #poslines through invoice.php?action=valid, exactly as takepos/pay.php does.
+		// This way TAKEPOS_AUTO_PRINT_TICKETS generates the ticket as in the native flow.
+		if (amountMain >= posplusRemainToPay) {
+			var loadurl = <?php echo json_encode(DOL_URL_ROOT.'/takepos/invoice.php'); ?> + '?action=valid&pay=' + encodeURIComponent(mode.code) + '&amount=' + encodeURIComponent(amountMain) + '&excess=' + encodeURIComponent(excess) + '&place=' + encodeURIComponent(posplusPlace) + '&invoiceid=' + encodeURIComponent(posplusInvoiceId) + '&token=' + encodeURIComponent(posplusToken);
+			parent.$("#poslines").load(loadurl, function() {
 				parent.$('#invoiceid').val("");
 				parent.$.colorbox.close();
+			});
+			return;
+		}
+
+		// Partial payment: register it via AJAX and keep the popup open with the remaining
+		// amount so the operator can continue with another mode.
+		var amountAcc = amountMain * rate; // bank account currency
+		var url = <?php echo json_encode(dol_buildpath('/posplus/payplus_ajax.php', 1)); ?> + '?token=' + posplusToken;
+		var data = {
+			action: 'addpayment',
+			place: posplusPlace,
+			invoiceid: posplusInvoiceId,
+			pay: mode.code,
+			amount: amountAcc,
+			accountid: mode.accountid,
+			currency: mode.currency,
+			rate: rate,
+			excess: excess
+		};
+
+		posplusSendPayment(url, data);
+	}
+
+	// Deferred (credit) sale: validate the invoice without registering a payment.
+	// We delegate to the core by reloading #poslines through invoice.php?action=valid
+	// with pay=delayed, exactly as takepos/pay.php does for the "Reported" button.
+	function posplusDelayed() {
+		var loadurl = <?php echo json_encode(DOL_URL_ROOT.'/takepos/invoice.php'); ?> + '?action=valid&pay=delayed&place=' + encodeURIComponent(posplusPlace) + '&invoiceid=' + encodeURIComponent(posplusInvoiceId) + '&token=' + encodeURIComponent(posplusToken);
+		parent.$("#poslines").load(loadurl, function() {
+			parent.$('#invoiceid').val("");
+			parent.$.colorbox.close();
+		});
+	}
+
+	// Send a single payment to the endpoint and handle remain / close.
+	function posplusSendPayment(url, data) {
+		$.post(url, data, function(resp) {
+			if (resp && resp.error) {
+				alert(resp.error);
+				return;
+			}
+			if (!resp || typeof resp.remaintopay === 'undefined') {
+				alert(<?php echo json_encode($langs->trans('Error')); ?>);
 				return;
 			}
 
-			var p = payments[idx++];
-			var url = <?php echo json_encode(dol_buildpath('/posplus/payplus_ajax.php', 1)); ?> + '?token=' + posplusToken;
-			var data = {
-				action: 'addpayment',
-				place: posplusPlace,
-				invoiceid: posplusInvoiceId,
-				pay: p.pay,
-				amount: p.amount,
-				accountid: p.accountid,
-				currency: p.currency,
-				rate: p.rate
-			};
-			$.post(url, data, function(resp) {
-				if (resp && resp.error) {
-					failed = true;
-					alert(resp.error);
-					return;
+			var remain = resp.remaintopay;
+			if (remain > 0) {
+				// Partial payment: keep the popup open, update the remain and reload the inputs.
+				posplusSetRemain(remain);
+				posplusReloadInputs(remain);
+				var note = document.getElementById('posplus_paid_note');
+				if (note) {
+					note.textContent = <?php echo json_encode($langs->trans('PosplusPaidPartial')); ?> + ' ' + posplusFormatAmount(remain) + ' ' + posplusMainCurrency;
 				}
-				sendNext();
-			}, 'json').fail(function() {
-				failed = true;
-				alert(<?php echo json_encode($langs->trans('Error')); ?>);
-			});
-		}
-
-		sendNext();
+			} else {
+				// Payment complete: refresh the POS lines and close the popup.
+				parent.$("#poslines").load("invoice.php?place=" + posplusPlace + "&token=" + posplusToken);
+				parent.$('#invoiceid').val("");
+				parent.$.colorbox.close();
+			}
+		}, 'json').fail(function() {
+			alert(<?php echo json_encode($langs->trans('Error')); ?>);
+		});
 	}
 </script>
 </body>

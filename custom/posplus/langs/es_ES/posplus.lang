@@ -67,3 +67,18 @@ PosplusPaymentReceived = Monto recibido
 PosplusEquivalent = Equivalente en moneda principal
 PosplusRegisterPayment = Registrar pago
 PosplusBankCurrency = Moneda de la cuenta
+PosplusAmountAccount = Monto en moneda de la cuenta
+PosplusAmountSession = Monto en moneda del cliente
+PosplusPaidPartial = Pago parcial registrado
+PosplusPayThisMode = Pagar con este modo
+PosplusLocalCurrency = Moneda local
+PosplusSessionCurrency = Moneda del cliente
+PosplusDelayed = Aplazado
+PosplusDelayedDesc = Venta a crédito (pago diferido)
+
+# TakePOS button controls
+DESCUENTO_FACTURA = Descuento de factura
+DESCUENTO_LINEA = Descuento de línea
+MODIFICAR_PRECIO = Modificar precio
+VENTA_DIVIDIDA = Venta dividida
+PRODUCTO_LIBRE = Producto texto libre

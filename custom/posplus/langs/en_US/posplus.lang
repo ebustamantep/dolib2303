@@ -70,3 +70,18 @@ PosplusPaymentReceived = Amount received
 PosplusEquivalent = Equivalent in main currency
 PosplusRegisterPayment = Record payment
 PosplusBankCurrency = Bank account currency
+PosplusAmountAccount = Amount in account currency
+PosplusAmountSession = Amount in customer currency
+PosplusPaidPartial = Partial payment recorded
+PosplusPayThisMode = Pay with this mode
+PosplusLocalCurrency = Local currency
+PosplusSessionCurrency = Customer currency
+PosplusDelayed = Deferred
+PosplusDelayedDesc = Credit sale (deferred payment)
+
+# TakePOS button controls
+DESCUENTO_FACTURA = Invoice discount
+DESCUENTO_LINEA = Line discount
+MODIFICAR_PRECIO = Modify price
+VENTA_DIVIDIDA = Split sale
+PRODUCTO_LIBRE = Free text product

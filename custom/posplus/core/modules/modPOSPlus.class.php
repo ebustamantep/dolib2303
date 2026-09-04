@@ -174,7 +174,13 @@ class modPOSPlus extends DolibarrModules
 		// Example: $this->const=array(1 => array('POSPLUS_MYNEWCONST1', 'chaine', 'myvalue', 'This is a constant to add', 1),
 		//                             2 => array('POSPLUS_MYNEWCONST2', 'chaine', 'myvalue', 'This is another constant to add', 0, 'current', 1)
 		// );
-		$this->const = array();
+		$this->const = array(
+			1 => array('DESCUENTO_FACTURA', 'chaine', '0', 'Show the invoice discount button in TakePOS (default: hidden)', 1, 'current', 1),
+			2 => array('MODIFICAR_PRECIO', 'chaine', '0', 'Allow modifying the price in TakePOS (0 = show the button disabled)', 1, 'current', 1),
+			3 => array('DESCUENTO_LINEA', 'chaine', '0', 'Show the line discount button in TakePOS (default: hidden)', 1, 'current', 1),
+			4 => array('VENTA_DIVIDIDA', 'chaine', '0', 'Show the split sale button in TakePOS (default: hidden)', 1, 'current', 1),
+			5 => array('PRODUCTO_LIBRE', 'chaine', '0', 'Show the free zone (free product) button in TakePOS (default: hidden)', 1, 'current', 1),
+		);
 
 		// Some keys to add into the overwriting translation tables
 		/*$this->overwrite_translation = array(
