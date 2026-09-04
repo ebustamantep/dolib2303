@@ -27,6 +27,40 @@
  *
  * @return array<array{string,string,string}>
  */
+/**
+ * Return a formatted monetary amount with comma as decimal separator and dot as
+ * thousands separator (e.g. 1.234,56), regardless of the installation language.
+ *
+ * @param float|string $amount        Amount to format
+ * @param string       $currency_code Currency code (optional). If set, the symbol is added.
+ * @return string
+ */
+function posplus_price($amount, $currency_code = '')
+{
+	global $langs, $conf;
+
+	$amount = (float) $amount;
+	$nbdec = 2;
+
+	$formatted = number_format($amount, $nbdec, ',', '.');
+
+	if ($currency_code) {
+		$symbol = $langs->getCurrencySymbol($currency_code);
+		if (!empty($symbol)) {
+			$formatted .= ' '.$symbol;
+		} elseif (!empty($conf->currency)) {
+			$formatted .= ' '.$conf->currency;
+		}
+	}
+
+	return $formatted;
+}
+
+/**
+ * Prepare admin pages header
+ *
+ * @return array<array{string,string,string}>
+ */
 function posplusAdminPrepareHead()
 {
 	global $langs, $conf;

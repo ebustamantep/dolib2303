@@ -18,8 +18,8 @@
 /**
  * \file    htdocs/posplus/class/actions_posplus.class.php
  * \ingroup posplus
- * \brief   Hook for TakePOS: show the price in the customer currency under the
- *          main price of each product in the div5, when multicurrency is active.
+ * \brief   Hooks for TakePOS: cash close button and (optionally) showing the price
+ *          in the customer currency under the main price of each product in the div5.
  */
 
 require_once DOL_DOCUMENT_ROOT.'/core/class/commonhookactions.class.php';
@@ -95,8 +95,36 @@ class ActionsPosplus extends CommonHookActions
 	}
 
 	/**
+	 * actionButtons. Called on the TakePOS frontend to add buttons to the action bar.
+	 *
+	 * @param array<string,mixed> $parameters Hook metadata
+	 * @param CommonObject        $object    The object
+	 * @param string              $action    Current action (if set)
+	 * @param HookManager         $hookmanager Hook manager
+	 * @return int <0 on error, 0 on success (0 = add buttons, 1 = replace)
+	 */
+	public function actionButtons($parameters, &$object, &$action, $hookmanager)
+	{
+		global $langs;
+
+		$langs->load('posplus@posplus');
+
+		$this->results = array(
+			array(
+				array(
+					'title' => '<span class="fa fa-money-bill-wave paddingrightonly"></span><div class="trunc">'.$langs->trans("PosplusCashClose").'</div>',
+					'action' => 'PosplusCashClose();',
+				),
+			),
+		);
+
+		return 0;
+	}
+
+	/**
 	 * addHtmlHeader. Called into <head> by top_htmlhead (context "main"). We inject
-	 * the CSS and the JS helper once, only when the page is the TakePOS frontend.
+	 * the JS needed by the cash close button and, if applicable, the multicurrency
+	 * price display. Only when the page is the TakePOS frontend.
 	 *
 	 * @param array<string,mixed> $parameters Hook metadata
 	 * @param CommonObject        $object    The object
@@ -116,14 +144,10 @@ class ActionsPosplus extends CommonHookActions
 			return 0;
 		}
 
-		$rate = $this->getPosCurrencyRate();
-		if ($rate <= 0) {
-			return 0;
-		}
+		$langs->load('posplus@posplus');
 
-		$sessioncurrency = $_SESSION["takeposcustomercurrency"];
-
-		$symbol = dol_escape_js($langs->getCurrencySymbol($sessioncurrency));
+		$today = dol_print_date(dol_now(), '%Y-%m-%d'); // server date
+		$moduleurl = dol_buildpath('/posplus/cashclose.php', 1);
 
 		$this->resprints = '<style>
 .productprice-sub {
@@ -136,6 +160,22 @@ class ActionsPosplus extends CommonHookActions
 }
 </style>
 <script>
+var posplusCashCloseUrl = "'.dol_escape_js($moduleurl).'";
+var posplusCashCloseToken = "'.dol_escape_js(currentToken()).'";
+var posplusCashCloseToday = "'.dol_escape_js($today).'";
+
+function PosplusCashClose() {
+	$.colorbox({href: posplusCashCloseUrl + "?token=" + posplusCashCloseToken + "&date=" + posplusCashCloseToday, width: "80%", height: "80%", transition: "none", iframe: "true", title: "'.dol_escape_js($langs->trans("PosplusCaisseClose")).'"});
+}
+</script>';
+
+		// Multicurrency price display (optional)
+		$rate = $this->getPosCurrencyRate();
+		if ($rate > 0) {
+			$sessioncurrency = $_SESSION["takeposcustomercurrency"];
+			$symbol = dol_escape_js($langs->getCurrencySymbol($sessioncurrency));
+
+			$this->resprints .= '<script>
 var posplusMulticurrencyRate = '.((float) $rate).';
 var posplusMulticurrencyCode = "'.dol_escape_js($sessioncurrency).'";
 var posplusMulticurrencySymbol = "'.$symbol.'";
@@ -172,6 +212,7 @@ function posplusAppendSecondaryPrice(containerId, price) {
 	el.appendChild(sub);
 }
 </script>';
+		}
 
 		return 0;
 	}

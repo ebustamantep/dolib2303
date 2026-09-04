@@ -40,3 +40,24 @@ MyPageName = My page name
 #
 MyWidget = My widget
 MyWidgetDescription = My widget description
+
+#
+# Cash close (TakePOS)
+#
+PosplusCashClose = Cash close
+PosplusCashCloseDate = Date
+PosplusInvoicesIssued = Invoices issued
+PosplusTotalInvoiced = Total invoiced
+PosplusBase = Tax base
+PosplusVAT = VAT
+PosplusPaymentsBreakdown = Payments breakdown
+PosplusPaymentMode = Payment mode
+PosplusNbPayments = Nb. payments
+PosplusNoData = No data for this terminal/date
+PosplusCaisseClose = Cash close report
+PosplusTerminal = Terminal
+Print = Print
+PosplusCurrency = Currency
+PosplusAmountForeign = Amount in currency
+PosplusRate = Rate
+PosplusAmountLocal = Amount in local currency

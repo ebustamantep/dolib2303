@@ -319,23 +319,9 @@ class modPOSPlus extends DolibarrModules
 		// Main menu entries to add
 		$this->menu = array();
 		$r = 0;
-		// Add here entries to declare new menus
+		// No main menu entry: this module only adds hooks to TakePOS (cash close button,
+		// currency price display). It does not expose a top menu icon.
 		/* BEGIN MODULEBUILDER TOPMENU */
-		$this->menu[$r++] = array(
-			'fk_menu' => '', // Will be stored into mainmenu + leftmenu. Use '' if this is a top menu. For left menu, use 'fk_mainmenu=xxx' or 'fk_mainmenu=xxx,fk_leftmenu=yyy' where xxx is mainmenucode and yyy is a leftmenucode
-			'type' => 'top', // This is a Top menu entry
-			'titre' => 'ModulePOSPlusName',
-			'prefix' => img_picto('', $this->picto, 'class="pictofixedwidth valignmiddle"'),
-			'mainmenu' => 'posplus',
-			'leftmenu' => '',
-			'url' => '/posplus/posplusindex.php',
-			'langs' => 'posplus@posplus', // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
-			'position' => 1000 + $r,
-			'enabled' => "isModEnabled('posplus')", // Define condition to show or hide menu entry. Use "isModEnabled('posplus')" if entry must be visible if module is enabled (those quote marks are importants).
-			'perms' => '1', // Use 'perms'=>'$user->hasRight("posplus", "myobject", "read")' if you want your menu with a permission rules
-			'target' => '',
-			'user' => 2, // 0=Menu for internal users, 1=external users, 2=both
-		);
 		/* END MODULEBUILDER TOPMENU */
 
 		/* BEGIN MODULEBUILDER LEFTMENU MYOBJECT */

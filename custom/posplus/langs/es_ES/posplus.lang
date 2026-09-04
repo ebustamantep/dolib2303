@@ -1,0 +1,60 @@
+# Translation file
+
+#
+# Generic
+#
+ModulePOSPlusName = POSPlus
+ModulePOSPlusDesc = Descripción de POSPlus
+
+#
+# Admin page
+#
+POSPlusSetup = Configuración de POSPlus
+Settings = Ajustes
+POSPlusSetupPage = Página de configuración de POSPlus
+NewSection=Nueva sección
+POSPLUS_MYPARAM1 = Mi parámetro 1
+POSPLUS_MYPARAM1Tooltip = Tooltip de mi parámetro 1
+POSPLUS_MYPARAM2=Mi parámetro 2
+POSPLUS_MYPARAM2Tooltip=Tooltip de mi parámetro 2
+
+
+#
+# About page
+#
+About = Acerca de
+POSPlusAbout = Acerca de POSPlus
+POSPlusAboutPage = Página acerca de POSPlus
+
+#
+# Sample page
+#
+POSPlusArea = Inicio POSPlus
+MyPageName = Nombre de mi página
+
+#
+# Sample widget
+#
+MyWidget = Mi widget
+MyWidgetDescription = Descripción de mi widget
+
+#
+# Cash close (TakePOS)
+#
+PosplusCashClose = Cierre de caja
+PosplusCashCloseDate = Fecha
+PosplusInvoicesIssued = Facturas emitidas
+PosplusTotalInvoiced = Total facturado
+PosplusBase = Base imponible
+PosplusVAT = IVA
+PosplusPaymentsBreakdown = Desglose de pagos
+PosplusPaymentMode = Modo de pago
+PosplusNbPayments = Nº pagos
+PosplusNoData = Sin datos para esta terminal/fecha
+PosplusCaisseClose = Reporte de cierre de caja
+PosplusTerminal = Terminal
+Print = Imprimir
+PosplusCurrency = Moneda
+PosplusAmountForeign = Monto
+PosplusRate = Tasa
+PosplusAmountLocal = Equivalente
