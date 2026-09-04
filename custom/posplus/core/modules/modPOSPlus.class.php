@@ -122,6 +122,7 @@ class modPOSPlus extends DolibarrModules
 			'hooks' => array(
 				'data' => array(
 					'takeposfrontend',
+					'takeposinvoice',
 					'main',
 				),
 				'entity' => '0',

@@ -258,4 +258,62 @@ function posplusAppendSecondaryPrice(containerId, price) {
 
 		return 0;
 	}
+
+	/**
+	 * completeTakePosInvoiceHeader. Called on the TakePOS invoice header (context
+	 * "takeposinvoice"). We rewrite the customer block (#customerandsales) so it
+	 * shows the full customer name and, on a second line, the intracommunity VAT
+	 * number, without touching the core file.
+	 *
+	 * @param array<string,mixed> $parameters Hook metadata
+	 * @param CommonObject        $object    The invoice object
+	 * @param string              $action    Current action (if set)
+	 * @param HookManager         $hookmanager Hook manager
+	 * @return int <0 on error, 0 on success
+	 */
+	public function completeTakePosInvoiceHeader($parameters, &$object, &$action, $hookmanager)
+	{
+		global $db, $langs, $conf, $user;
+
+		$this->resprints = '';
+
+		if (!is_object($object) || empty($object->element) || $object->element != 'facture') {
+			return 0;
+		}
+
+		// Load the module translation file so the intra label is translated.
+		$langs->load('posplus@posplus');
+
+		// Only if a real customer is set (not the generic POS thirdparty).
+		$constforcompanyid = 'CASHDESK_ID_THIRDPARTY'.(empty($_SESSION['takeposterminal']) ? '1' : $_SESSION['takeposterminal']);
+		$genericid = getDolGlobalInt($constforcompanyid);
+		if (empty($object->socid) || (int) $object->socid == (int) $genericid) {
+			return 0;
+		}
+
+		require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+		$soc = new Societe($db);
+		if ($soc->fetch($object->socid) <= 0) {
+			return 0;
+		}
+
+		$name = $soc->name;
+		$intra = trim($soc->tva_intra);
+		// Native translation for the local tax id (CI/RIF in es_VE). The key is the native
+		// ProfId1ES from the es_VE companies.lang file (do not add a new custom key).
+		$intralabel = $langs->transnoentities('ProfId1ES');
+
+		$this->resprints = '<script>
+	$(document).ready(function() {
+		var cs = $("#customerandsales");
+		if (!cs.length) { return; }
+		var pname = '.(json_encode($name)).';
+		var pintra = '.(json_encode($intra)).';
+		var pintralabel = '.(json_encode($intralabel)).';
+		cs.html("").append(\'<a class="valignmiddle" id="customer" onclick="Customer();" style="line-height:1.15; display:inline-block;"><span class="fas fa-building paddingrightonly"></span><span><b>\' + pname + \'</b>\' + (pintra ? \'<br><span style="font-size:0.8em; opacity:0.85;">\' + pintralabel + \': \' + pintra + \'</span>\' : \'\') + \'</span></a>\');
+	});
+	</script>';
+
+		return 0;
+	}
 }
